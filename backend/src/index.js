@@ -11,15 +11,24 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 const allowedOrigins = process.env.FRONTEND_URL
-  ? [process.env.FRONTEND_URL, "http://localhost:5173"]
+  ? [process.env.FRONTEND_URL.replace(/\/$/, ""), "http://localhost:5173"]
   : ["http://localhost:5173"];
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   }),
 );
+app.options("*", cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
@@ -40,7 +49,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Internal server error" });
 });
 
-// Connect DB and start server (local dev only)
 if (!process.env.VERCEL) {
   connectDB().then(() => {
     app.listen(PORT, () => {
@@ -48,7 +56,6 @@ if (!process.env.VERCEL) {
     });
   });
 } else {
-  // On Vercel: connect DB on first request
   connectDB();
 }
 
